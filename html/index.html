@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoFlow RIVER 2 Pro — Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.2/dist/apexcharts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg:           #080c10;
+            --bg-card:      #0d1117;
+            --bg-card2:     #111820;
+            --border:       rgba(255,255,255,0.06);
+            --border-hover: rgba(255,255,255,0.14);
+            --text:         #e8edf2;
+            --muted:        #4a5568;
+            --muted2:       #2d3748;
+
+            --green:  #00e5a0;
+            --yellow: #f5c400;
+            --blue:   #38bdf8;
+            --orange: #fb923c;
+            --red:    #f87171;
+
+            --green-dim:  rgba(0,229,160,0.08);
+            --yellow-dim: rgba(245,196,0,0.08);
+            --blue-dim:   rgba(56,189,248,0.08);
+        }
+
+        html { overflow-x: hidden; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* ── ノイズテクスチャ背景 ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+            background-size: 256px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container { max-width: 1280px; margin: 0 auto; position: relative; z-index: 1; }
+
+        /* ── HEADER ── */
+        header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .brand { display: flex; align-items: center; gap: 1rem; }
+
+        .brand-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--green), var(--blue));
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .brand h1 {
+            font-size: 1.6rem;
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        .brand h1 span { color: var(--green); }
+
+        .brand sub {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--muted);
+            letter-spacing: 0.1em;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .header-meta {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-align: right;
+            line-height: 1.8;
+        }
+
+        .online-dot {
+            display: inline-block;
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: blink 2s ease-in-out infinite;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.3; }
+        }
+
+        /* ── STATS CARDS ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.25s, transform 0.25s;
+            cursor: default;
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .stat-card .accent-bar {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+        }
+
+        .stat-card.soc  .accent-bar { background: linear-gradient(90deg, var(--green), transparent); }
+        .stat-card.out  .accent-bar { background: linear-gradient(90deg, var(--yellow), transparent); }
+        .stat-card.solar .accent-bar { background: linear-gradient(90deg, var(--blue), transparent); }
+
+        .stat-card .card-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-card .card-label .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .stat-card.soc   .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+        .stat-card.out   .dot { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+        .stat-card.solar .dot { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+
+        .stat-card .big-value {
+            font-size: 3.2rem;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.04em;
+        }
+
+        .stat-card.soc   .big-value { color: var(--green); }
+        .stat-card.out   .big-value { color: var(--yellow); }
+        .stat-card.solar .big-value { color: var(--blue); }
+
+        .stat-card .unit {
+            font-size: 1rem;
+            font-weight: 400;
+            color: var(--muted);
+            margin-left: 4px;
+        }
+
+        /* バッテリーバー */
+        .soc-bar-wrap {
+            margin-top: 1rem;
+            height: 4px;
+            background: var(--muted2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .soc-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: var(--green);
+            transition: width 0.8s ease;
+        }
+
+        .stat-card .sub-info {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--muted);
+            margin-top: 0.5rem;
+        }
+
+        /* ── 期間セレクター ── */
+        .period-bar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.9rem 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .period-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .preset-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+        .preset-btn {
+            padding: 0.3rem 0.75rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--muted);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .preset-btn:hover { border-color: var(--green); color: var(--green); }
+        .preset-btn.active { background: rgba(0,229,160,0.1); border-color: var(--green); color: var(--green); }
+
+        .period-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+
+        .custom-range { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .custom-range label { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--muted); white-space: nowrap; }
+
+        .date-input {
+            background: var(--bg-card2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68rem;
+            padding: 0.3rem 0.6rem;
+            outline: none;
+            transition: border-color 0.2s;
+            cursor: pointer;
+        }
+
+        .date-input:focus { border-color: var(--green); }
+        .date-input::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+
+        .apply-btn {
+            padding: 0.3rem 0.8rem;
+            background: rgba(0,229,160,0.1);
+            border: 1px solid var(--green);
+            border-radius: 6px;
+            color: var(--green);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .apply-btn:hover { background: rgba(0,229,160,0.2); }
+
+        .period-disp {
+            margin-left: auto;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        /* ── CHART ── */
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            margin-bottom: 1.25rem;
+            transition: border-color 0.25s;
+        }
+
+        .chart-card:hover { border-color: var(--border-hover); }
+
+        .chart-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .chart-title .color-pill {
+            display: inline-block;
+            width: 24px; height: 3px;
+            border-radius: 2px;
+        }
+
+        .chart-wrapper { height: 260px; }
+
+        /* ── LOADING / ERROR ── */
+        .loading {
+            text-align: center;
+            padding: 6rem 2rem;
+            color: var(--muted);
+        }
+
+        .spinner {
+            width: 36px; height: 36px;
+            margin: 0 auto 1.5rem;
+            border: 2px solid var(--border);
+            border-top-color: var(--green);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-text {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            letter-spacing: 0.1em;
+        }
+
+        .error-box {
+            background: rgba(248,113,113,0.06);
+            border: 1px solid rgba(248,113,113,0.3);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--red);
+            margin: 2rem 0;
+        }
+
+        /* ── FOOTER ── */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 2rem;
+            padding: 1rem 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .footer-info {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--muted);
+        }
+
+        .refresh-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 1rem;
+            background: transparent;
+            border: 1px solid var(--green);
+            border-radius: 8px;
+            color: var(--green);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover { background: rgba(0,229,160,0.1); }
+        .refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .refresh-btn .icon { display: inline-block; }
+        .refresh-btn.loading .icon { animation: spin 0.7s linear infinite; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .stat-card .big-value { font-size: 2.5rem; }
+            .period-sep { display: none; }
+            .period-disp { width: 100%; margin-left: 0; }
+            header { flex-direction: column; align-items: flex-start; }
+            .header-meta { text-align: left; }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .stats-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- HEADER -->
+    <header>
+        <div class="brand">
+            <div class="brand-icon">⚡</div>
+            <div>
+                <h1>Eco<span>Flow</span> Monitor</h1>
+                <sub>RIVER 2 Pro · Raspberry Pi 4</sub>
+            </div>
+        </div>
+        <div class="header-meta" id="header-meta">
+            <span class="online-dot" id="online-dot" style="display:none"></span>
+            <span id="device-sn">--</span><br>
+            最終更新: <span id="last-update">--</span>
+        </div>
+    </header>
+
+    <!-- LOADING -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p class="loading-text">LOADING DATA...</p>
+    </div>
+
+    <div id="error-box" class="error-box" style="display:none"></div>
+
+    <div id="dashboard" style="display:none">
+
+        <!-- STATS CARDS -->
+        <div class="stats-grid">
+            <div class="stat-card soc">
+                <div class="accent-bar"></div>
+                <div class="card-label"><span class="dot"></span>Battery SOC</div>
+                <div><span class="big-value" id="val-soc">--</span><span class="unit">%</span></div>
+                <div class="soc-bar-wrap"><div class="soc-bar-fill" id="soc-bar" style="width:0%"></div></div>
+                <div class="sub-info" id="sub-soc">--</div>
+            </div>
+            <div class="stat-card out">
+                <div class="accent-bar"></div>
+                <div class="card-label"><span class="dot"></span>Output Power</div>
+                <div><span class="big-value" id="val-out">--</span><span class="unit">W</span></div>
+                <div class="sub-info" id="sub-out">--</div>
+            </div>
+            <div class="stat-card solar">
+                <div class="accent-bar"></div>
+                <div class="card-label"><span class="dot"></span>Solar Input</div>
+                <div><span class="big-value" id="val-solar">--</span><span class="unit">W</span></div>
+                <div class="sub-info" id="sub-solar">--</div>
+            </div>
+        </div>
+
+        <!-- PERIOD BAR -->
+        <div class="period-bar">
+            <span class="period-label">Period</span>
+            <div class="preset-btns">
+                <button class="preset-btn" data-hours="1"   onclick="applyPreset(this)">1h</button>
+                <button class="preset-btn" data-hours="6"   onclick="applyPreset(this)">6h</button>
+                <button class="preset-btn active" data-hours="24" onclick="applyPreset(this)">24h</button>
+                <button class="preset-btn" data-hours="72"  onclick="applyPreset(this)">3d</button>
+                <button class="preset-btn" data-hours="168" onclick="applyPreset(this)">7d</button>
+                <button class="preset-btn" data-hours="720" onclick="applyPreset(this)">30d</button>
+            </div>
+            <div class="period-sep"></div>
+            <div class="custom-range">
+                <label>FROM</label>
+                <input type="datetime-local" class="date-input" id="date-from">
+                <label>TO</label>
+                <input type="datetime-local" class="date-input" id="date-to">
+                <button class="apply-btn" onclick="applyCustomRange()">APPLY</button>
+            </div>
+            <span class="period-disp" id="period-disp">--</span>
+        </div>
+
+        <!-- CHARTS -->
+        <div class="chart-card">
+            <div class="chart-title">
+                <span class="color-pill" style="background:var(--green)"></span>
+                Battery SOC (%)
+            </div>
+            <div class="chart-wrapper"><div id="chart-soc"></div></div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">
+                <span class="color-pill" style="background:var(--yellow)"></span>
+                <span style="color:var(--yellow)">■</span> Total Output &nbsp;
+                <span class="color-pill" style="background:var(--orange)"></span>
+                <span style="color:var(--orange)">■</span> AC Output (W)
+            </div>
+            <div class="chart-wrapper"><div id="chart-out"></div></div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">
+                <span class="color-pill" style="background:var(--blue)"></span>
+                Solar Input (W)
+            </div>
+            <div class="chart-wrapper"><div id="chart-solar"></div></div>
+        </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        <span class="footer-info">⏱ AUTO REFRESH: 5min &nbsp;|&nbsp; <span id="next-update">--</span></span>
+        <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">
+            <span class="icon">↻</span> REFRESH
+        </button>
+    </div>
+
+</div>
+
+<script>
+const BLOB_URL = 'https://nakamurast20250505.blob.core.windows.net/root/ecoflow-data/ecoflow.jsonl';
+const BYTES_PER_RECORD  = 280;
+const RECORDS_PER_HOUR  = 62;
+const LATEST_BYTES      = 10 * 1024;
+
+let chartSoc   = null;
+let chartOut   = null;
+let chartSolar = null;
+
+let allData      = [];
+let currentHours = 24;
+let customFrom   = null;
+let customTo     = null;
+let blobSize     = 0;
+let refreshTimer = null;
+
+// ── パース ──
+function parseJSONL(text) {
+    return text.trim().split('\n').map(line => {
+        try { return JSON.parse(line); } catch { return null; }
+    }).filter(Boolean);
+}
+
+function fmt(ts) {
+    return new Date(ts).toLocaleString('ja-JP', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+function fmtMin(min) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// ── ファイルサイズ取得 ──
+async function getSize(url) {
+    const res = await fetch(url, { method: 'HEAD', headers: { 'x-ms-version': '2020-08-04' } });
+    if (!res.ok) throw new Error('HEAD request failed');
+    return parseInt(res.headers.get('Content-Length') || '0', 10);
+}
+
+// ── Range 取得 ──
+async function fetchRange(url, start) {
+    if (start < 0) start = 0;
+    const res = await fetch(url, {
+        headers: { 'Range': `bytes=${start}-`, 'x-ms-version': '2020-08-04' }
+    });
+    if (res.status === 206 || res.ok) return await res.text();
+    throw new Error(`Fetch failed: ${res.status}`);
+}
+
+// ── データ取得 ──
+async function fetchData() {
+    const url    = BLOB_URL + '?t=' + Date.now();
+    const hours  = customFrom && customTo
+        ? (new Date(customTo) - new Date(customFrom)) / 3600000
+        : currentHours;
+    let needed   = Math.ceil(hours * RECORDS_PER_HOUR * 1.4) * BYTES_PER_RECORD;
+
+    blobSize = await getSize(url);
+
+    let text, parsed;
+    if (blobSize <= needed) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('データの取得に失敗しました');
+        text   = await res.text();
+        parsed = parseJSONL(text);
+    } else {
+        let start = blobSize - needed;
+        text      = await fetchRange(url, start);
+        parsed    = parseJSONL(text);
+
+        // カバレッジ確認
+        const from = customFrom ? new Date(customFrom) : new Date(Date.now() - hours * 3600000);
+        const oldest = parsed.length > 0 ? new Date(parsed[0].timestamp) : null;
+        if (oldest && oldest > from && start > 0) {
+            needed = Math.min(needed * 2, blobSize);
+            start  = blobSize - needed;
+            text   = await fetchRange(url, start);
+            parsed = parseJSONL(text);
+        }
+    }
+
+    allData = parsed;
+    return parsed;
+}
+
+// ── フィルタリング ──
+function getFiltered() {
+    let from, to;
+    if (customFrom && customTo) {
+        from = new Date(customFrom);
+        to   = new Date(customTo);
+    } else {
+        to   = new Date();
+        from = new Date(to - currentHours * 3600000);
+    }
+    return allData.filter(d => {
+        const t = new Date(d.timestamp);
+        return t >= from && t <= to;
+    });
+}
+
+// ── バケット間隔 ──
+function getBucketMs() {
+    const h = customFrom && customTo
+        ? (new Date(customTo) - new Date(customFrom)) / 3600000
+        : currentHours;
+    if (h <= 2)   return 1  * 60000;
+    if (h <= 12)  return 5  * 60000;
+    if (h <= 72)  return 15 * 60000;
+    return 60 * 60000;
+}
+
+// ── 現在値カード更新 ──
+function updateCards(data) {
+    const latest = [...data].reverse().find(d => d.data);
+    if (!latest) return;
+
+    const d = latest.data;
+    document.getElementById('online-dot').style.display = 'inline-block';
+    document.getElementById('device-sn').textContent    = latest.sn || '--';
+    document.getElementById('last-update').textContent  = fmt(latest.timestamp);
+
+    const soc   = d['pd.soc']          ?? '--';
+    const outW  = d['pd.wattsOutSum']  ?? '--';
+    const solar = d['mppt.inWatts']    ?? '--';
+    const remain = d['bms_emsStatus.dsgRemainTime'];
+
+    document.getElementById('val-soc').textContent   = soc;
+    document.getElementById('val-out').textContent   = outW;
+    document.getElementById('val-solar').textContent = solar;
+
+    // SOCバー
+    if (typeof soc === 'number') {
+        document.getElementById('soc-bar').style.width = soc + '%';
+    }
+
+    // サブ情報
+    document.getElementById('sub-soc').textContent   = remain != null ? `残り ${fmtMin(remain)}` : '--';
+    document.getElementById('sub-out').textContent   = `AC: ${d['inv.outputWatts'] ?? '--'} W`;
+    document.getElementById('sub-solar').textContent = d['mppt.cfgAcEnabled'] === 1 ? 'AC: ON' : 'AC: OFF';
+}
+
+// ── チャートオプション生成 ──
+function makeOpts(seriesList, yLabel, yMin, yMax, unit) {
+    const darkTooltip = {
+        theme: 'dark',
+        x: { format: 'MM/dd HH:mm' },
+        y: { formatter: v => v != null ? v + unit : '--' },
+        style: { fontFamily: 'Space Mono, monospace', fontSize: '11px' }
+    };
+    return {
+        series: seriesList,
+        chart: {
+            type: 'line',
+            height: 260,
+            background: 'transparent',
+            toolbar: {
+                show: true,
+                tools: { download: false, selection: false, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true }
+            },
+            zoom: { enabled: true, type: 'x' },
+            animations: { enabled: false },
+            fontFamily: 'Outfit, sans-serif',
+        },
+        theme: { mode: 'dark' },
+        stroke: { curve: 'smooth', width: seriesList.map(() => 2) },
+        fill: {
+            type: seriesList.map(() => 'gradient'),
+            gradient: { shadeIntensity: 1, opacityFrom: 0.2, opacityTo: 0.0, stops: [0, 100] }
+        },
+        dataLabels: { enabled: false },
+        markers: { size: 0, hover: { size: 4 } },
+        xaxis: {
+            type: 'datetime',
+            labels: {
+                datetimeUTC: false,
+                style: { colors: '#4a5568', fontFamily: 'Space Mono, monospace', fontSize: '10px' }
+            },
+            axisBorder: { color: '#1a2030' },
+            axisTicks: { color: '#1a2030' },
+        },
+        yaxis: {
+            min: yMin,
+            max: yMax,
+            labels: {
+                formatter: v => v != null ? v + unit : '--',
+                style: { colors: '#4a5568', fontFamily: 'Space Mono, monospace', fontSize: '10px' }
+            }
+        },
+        tooltip: darkTooltip,
+        grid: {
+            borderColor: 'rgba(255,255,255,0.04)',
+            strokeDashArray: 4,
+            xaxis: { lines: { show: false } }
+        },
+        legend: {
+            labels: { colors: '#9ca3af' },
+            fontFamily: 'Space Mono, monospace',
+            fontSize: '10px'
+        },
+        noData: { text: 'NO DATA', style: { color: '#4a5568', fontFamily: 'Space Mono, monospace' } }
+    };
+}
+
+// ── チャート描画 ──
+function renderCharts() {
+    const filtered  = getFiltered();
+    const bucketMs  = getBucketMs();
+
+    // バケット集計ヘルパー
+    function bucket(key) {
+        const map = new Map();
+        filtered.forEach(d => {
+            const v = d.data?.[key];
+            if (v == null) return;
+            const t = Math.floor(new Date(d.timestamp).getTime() / bucketMs) * bucketMs;
+            if (!map.has(t)) map.set(t, []);
+            map.get(t).push(v);
+        });
+        return Array.from(map.entries())
+            .sort(([a],[b]) => a - b)
+            .map(([t, vals]) => [t, Math.round(vals.reduce((a,b)=>a+b)/vals.length * 10) / 10]);
+    }
+
+    const socSeries    = bucket('pd.soc');
+    const outSeries    = bucket('pd.wattsOutSum');
+    const acSeries     = bucket('inv.outputWatts');
+    const solarSeries  = bucket('mppt.inWatts');
+
+    // SOCチャート
+    const optsSoc = makeOpts(
+        [{ name: 'SOC', data: socSeries, color: '#00e5a0' }],
+        'SOC', 0, 100, '%'
+    );
+    optsSoc.fill = { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.0 } };
+    optsSoc.chart.type = 'area';
+
+    if (chartSoc) {
+        chartSoc.updateSeries(optsSoc.series);
+        chartSoc.updateOptions({ xaxis: optsSoc.xaxis, yaxis: optsSoc.yaxis });
+    } else {
+        chartSoc = new ApexCharts(document.getElementById('chart-soc'), optsSoc);
+        chartSoc.render();
+    }
+
+    // 出力チャート（総出力 + AC出力）
+    const optsOut = makeOpts(
+        [
+            { name: '総出力', data: outSeries, color: '#f5c400' },
+            { name: 'AC出力', data: acSeries,  color: '#fb923c' },
+        ],
+        'W', 0, undefined, 'W'
+    );
+    optsOut.fill = { type: ['gradient', 'gradient'], gradient: { shadeIntensity: 1, opacityFrom: 0.15, opacityTo: 0.0 } };
+
+    if (chartOut) {
+        chartOut.updateSeries(optsOut.series);
+        chartOut.updateOptions({ xaxis: optsOut.xaxis, yaxis: optsOut.yaxis });
+    } else {
+        chartOut = new ApexCharts(document.getElementById('chart-out'), optsOut);
+        chartOut.render();
+    }
+
+    // ソーラーチャート
+    const optsSolar = makeOpts(
+        [{ name: 'Solar', data: solarSeries, color: '#38bdf8' }],
+        'W', 0, undefined, 'W'
+    );
+    optsSolar.fill = { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.0 } };
+    optsSolar.chart.type = 'area';
+
+    if (chartSolar) {
+        chartSolar.updateSeries(optsSolar.series);
+        chartSolar.updateOptions({ xaxis: optsSolar.xaxis, yaxis: optsSolar.yaxis });
+    } else {
+        chartSolar = new ApexCharts(document.getElementById('chart-solar'), optsSolar);
+        chartSolar.render();
+    }
+}
+
+// ── 期間表示更新 ──
+function updatePeriodDisp() {
+    const el = document.getElementById('period-disp');
+    if (customFrom && customTo) {
+        el.textContent = `${fmt(customFrom)} — ${fmt(customTo)}`;
+    } else {
+        const to   = new Date();
+        const from = new Date(to - currentHours * 3600000);
+        el.textContent = `${fmt(from)} — ${fmt(to)}`;
+    }
+}
+
+// ── プリセット適用 ──
+async function applyPreset(btn) {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentHours = parseInt(btn.dataset.hours);
+    customFrom = customTo = null;
+    document.getElementById('date-from').value = '';
+    document.getElementById('date-to').value   = '';
+    blobSize = 0;
+    await refreshDashboard();
+}
+
+// ── カスタム範囲適用 ──
+async function applyCustomRange() {
+    const f = document.getElementById('date-from').value;
+    const t = document.getElementById('date-to').value;
+    if (!f || !t) { alert('開始・終了日時を入力してください'); return; }
+    if (new Date(f) >= new Date(t)) { alert('終了は開始より後にしてください'); return; }
+    customFrom = f; customTo = t;
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    blobSize = 0;
+    await refreshDashboard();
+}
+
+// ── メイン更新 ──
+async function refreshDashboard() {
+    try {
+        await fetchData();
+        updateCards(allData);
+        renderCharts();
+        updatePeriodDisp();
+
+        const now = new Date();
+        document.getElementById('last-update').textContent = now.toLocaleTimeString('ja-JP');
+        document.getElementById('next-update').textContent =
+            'NEXT: ' + new Date(now.getTime() + 5 * 60000).toLocaleTimeString('ja-JP');
+
+        document.getElementById('loading').style.display   = 'none';
+        document.getElementById('error-box').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+
+        const nowJST = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16);
+        if (!document.getElementById('date-to').value) {
+            document.getElementById('date-to').value = nowJST;
+        }
+        document.getElementById('date-to').max = nowJST;
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById('loading').style.display   = 'none';
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('error-box').style.display = 'block';
+        document.getElementById('error-box').textContent   = `ERROR: ${err.message}`;
+    }
+}
+
+async function manualRefresh() {
+    const btn = document.getElementById('refresh-btn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    blobSize = 0;
+    try { await refreshDashboard(); }
+    finally { btn.classList.remove('loading'); btn.disabled = false; }
+}
+
+// ── 起動 ──
+refreshDashboard();
+setInterval(() => { blobSize = 0; refreshDashboard(); }, 5 * 60000);
+</script>
+</body>
+</html>

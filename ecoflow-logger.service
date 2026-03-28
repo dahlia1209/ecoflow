@@ -1,0 +1,17 @@
+[Unit]
+Description=EcoFlow Data Logger
+After=network.target
+
+[Service]
+Type=simple
+User=dahlia1209
+WorkingDirectory=/home/dahlia1209/src/ecoflow
+Environment="PATH=/home/dahlia1209/src/ecoflow/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/dahlia1209/src/ecoflow/.venv/bin/python3 /home/dahlia1209/src/ecoflow/ecoflow_logger.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/dahlia1209/src/ecoflow/logs/service.log
+StandardError=append:/home/dahlia1209/src/ecoflow/logs/service.log
+
+[Install]
+WantedBy=multi-user.target
