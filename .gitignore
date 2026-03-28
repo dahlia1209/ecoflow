@@ -31,3 +31,6 @@ Thumbs.db
 
 # ログ
 *.log
+logs
+logs_*
+
