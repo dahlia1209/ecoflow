@@ -642,6 +642,7 @@ function getBucketMs() {
         : currentHours;
     if (h <= 2)   return 1  * 60000;
     if (h <= 12)  return 5  * 60000;
+    if (h <= 24)  return 5  * 60000;
     if (h <= 72)  return 15 * 60000;
     return 60 * 60000;
 }
@@ -681,7 +682,7 @@ function makeOpts(seriesList, yLabel, yMin, yMax, unit) {
     const darkTooltip = {
         theme: 'dark',
         x: { format: 'MM/dd HH:mm' },
-        y: { formatter: v => v != null ? v + unit : '--' },
+        y: { formatter: v => v != null ? (unit === 'W' ? Math.round(v) : v) + unit : '--' },
         style: { fontFamily: 'Space Mono, monospace', fontSize: '11px' }
     };
     return {
@@ -699,11 +700,8 @@ function makeOpts(seriesList, yLabel, yMin, yMax, unit) {
             fontFamily: 'Outfit, sans-serif',
         },
         theme: { mode: 'dark' },
+        colors: seriesList.map(s => s.color),
         stroke: { curve: 'smooth', width: seriesList.map(() => 2) },
-        fill: {
-            type: seriesList.map(() => 'gradient'),
-            gradient: { shadeIntensity: 1, opacityFrom: 0.2, opacityTo: 0.0, stops: [0, 100] }
-        },
         dataLabels: { enabled: false },
         markers: { size: 0, hover: { size: 4 } },
         xaxis: {
@@ -719,7 +717,7 @@ function makeOpts(seriesList, yLabel, yMin, yMax, unit) {
             min: yMin,
             max: yMax,
             labels: {
-                formatter: v => v != null ? v + unit : '--',
+                formatter: v => v != null ? (unit === 'W' ? Math.round(v) : v) + unit : '--',
                 style: { colors: '#4a5568', fontFamily: 'Space Mono, monospace', fontSize: '10px' }
             }
         },
@@ -755,7 +753,7 @@ function renderCharts() {
         });
         return Array.from(map.entries())
             .sort(([a],[b]) => a - b)
-            .map(([t, vals]) => [t, Math.round(vals.reduce((a,b)=>a+b)/vals.length * 10) / 10]);
+            .map(([t, vals]) => [t, Math.round(vals.reduce((a,b)=>a+b)/vals.length)]);
     }
 
     const socSeries    = bucket('pd.soc');
@@ -772,8 +770,7 @@ function renderCharts() {
     optsSoc.chart.type = 'area';
 
     if (chartSoc) {
-        chartSoc.updateSeries(optsSoc.series);
-        chartSoc.updateOptions({ xaxis: optsSoc.xaxis, yaxis: optsSoc.yaxis });
+        chartSoc.updateOptions({ series: optsSoc.series, xaxis: optsSoc.xaxis, yaxis: optsSoc.yaxis }, false, true);
     } else {
         chartSoc = new ApexCharts(document.getElementById('chart-soc'), optsSoc);
         chartSoc.render();
@@ -785,29 +782,29 @@ function renderCharts() {
             { name: '総出力', data: outSeries, color: '#f5c400' },
             { name: 'AC出力', data: acSeries,  color: '#fb923c' },
         ],
-        'W', 0, undefined, 'W'
+        'W', undefined, undefined, 'W'
     );
-    optsOut.fill = { type: ['gradient', 'gradient'], gradient: { shadeIntensity: 1, opacityFrom: 0.15, opacityTo: 0.0 } };
+    delete optsOut.fill;
+    optsOut.colors = ['#f5c400', '#fb923c'];
+    optsOut.stroke = { curve: 'smooth', width: [2, 2] };
 
     if (chartOut) {
-        chartOut.updateSeries(optsOut.series);
-        chartOut.updateOptions({ xaxis: optsOut.xaxis, yaxis: optsOut.yaxis });
-    } else {
-        chartOut = new ApexCharts(document.getElementById('chart-out'), optsOut);
-        chartOut.render();
+        chartOut.destroy();
+        chartOut = null;
     }
+    chartOut = new ApexCharts(document.getElementById('chart-out'), optsOut);
+    chartOut.render();
 
     // ソーラーチャート
     const optsSolar = makeOpts(
         [{ name: 'Solar', data: solarSeries, color: '#38bdf8' }],
-        'W', 0, undefined, 'W'
+        'W', undefined, undefined, 'W'
     );
     optsSolar.fill = { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.0 } };
     optsSolar.chart.type = 'area';
 
     if (chartSolar) {
-        chartSolar.updateSeries(optsSolar.series);
-        chartSolar.updateOptions({ xaxis: optsSolar.xaxis, yaxis: optsSolar.yaxis });
+        chartSolar.updateOptions({ series: optsSolar.series, xaxis: optsSolar.xaxis, yaxis: optsSolar.yaxis }, false, true);
     } else {
         chartSolar = new ApexCharts(document.getElementById('chart-solar'), optsSolar);
         chartSolar.render();
